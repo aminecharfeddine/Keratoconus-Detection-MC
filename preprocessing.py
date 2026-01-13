@@ -5,26 +5,39 @@ import pandas as pd
 import joblib
 
 FEATURE_NAMES_PATH = "models/feature_names.pkl"
-
 FEATURE_NAMES = joblib.load(FEATURE_NAMES_PATH)
 
+DROP_COLS = [
+    "PatientID", "First Name", "Last Name", "DOB",
+    "Age", "Gender", "Ethnicity",
+    "Scan Date", "Scan Time", "Scan Type"
+]
+
 def load_and_preprocess(uploaded_file):
-    # Détection du séparateur (tabulation ou virgule)
+    # Lecture auto du séparateur (tab ou virgule)
     df = pd.read_csv(uploaded_file, sep=None, engine="python")
 
-    # Supprimer colonnes non numériques / administratives si présentes
-    drop_cols = [
-        "PatientID", "First Name", "Last Name", "DOB",
-        "Age", "Gender", "Ethnicity", "Eye",
-        "Scan Date", "Scan Time", "Scan Type"
-    ]
-    df = df.drop(columns=[c for c in drop_cols if c in df.columns])
+    if "Eye" not in df.columns:
+        raise ValueError("Colonne 'Eye' absente du fichier")
 
-    # Garder uniquement les colonnes vues à l'entraînement
-    df = df.reindex(columns=FEATURE_NAMES)
+    # Nettoyage colonnes non utilisées
+    df = df.drop(columns=[c for c in DROP_COLS if c in df.columns])
 
-    # Une ligne = un œil
-    if len(df) != 1:
-        raise ValueError("Le fichier doit contenir exactement un œil")
+    # Séparation par œil
+    eyes_data = {}
 
-    return df
+    for eye in df["Eye"].unique():
+        df_eye = df[df["Eye"] == eye].copy()
+
+        # Supprimer la colonne Eye après split
+        df_eye = df_eye.drop(columns=["Eye"])
+
+        # Alignement strict avec les features du modèle
+        df_eye = df_eye.reindex(columns=FEATURE_NAMES)
+
+        if df_eye.isnull().all(axis=1).any():
+            raise ValueError(f"Données manquantes excessives pour l'œil {eye}")
+
+        eyes_data[eye] = df_eye
+
+    return eyes_data
