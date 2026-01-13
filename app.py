@@ -1,60 +1,55 @@
-# =========================
-# app.py
-# =========================
 import streamlit as st
 import pandas as pd
-from predict import predict_from_file
+# On importe la fonction de prédiction que vous avez définie dans predict.py
+from predict import predict_from_file 
 
 st.set_page_config(
-    page_title="Keratoconus AI – Aide à la décision",
+    page_title="Keratoconus AI",
     page_icon="👁️",
     layout="wide"
 )
 
 st.title("👁️ Détection du kératocône par IA")
-st.markdown(
-    """
-    **Outil d’aide à la décision médicale**  
-    Importez un fichier issu de la machine d’imagerie cornéenne (2 yeux).
-    
-    ⚠️ *Ce système ne constitue pas un dispositif médical autonome.*
-    """
-)
 
-uploaded_file = st.file_uploader(
-    "📂 Importer le fichier patient (.txt ou .csv)",
-    type=["txt", "csv"]
-)
+uploaded_file = st.file_uploader("📂 Importer le fichier patient (.txt ou .csv)", type=["txt", "csv"])
 
 if uploaded_file is not None:
-    with st.spinner("Analyse en cours..."):
-        results = predict_from_file(uploaded_file)
+    try:
+        with st.spinner("Analyse des données cornéennes..."):
+            # Appel de la fonction de votre script predict.py
+            # Elle doit retourner un dictionnaire : { "OD": {...}, "OS": {...} }
+            results = predict_from_file(uploaded_file)
 
-    st.success("Analyse terminée")
+        if not results:
+            st.error("Aucune donnée n'a pu être extraite. Vérifiez le format du fichier.")
+        else:
+            st.success(f"Analyse terminée ({len(results)} œil/yeux détectés)")
 
-    cols = st.columns(len(results))
+            # Utilisation d'onglets pour un affichage propre par œil
+            tab_list = st.tabs([f"👁️ Œil {eye}" for eye in results.keys()])
 
-    for col, (eye, res) in zip(cols, results.items()):
-        with col:
-            st.subheader(f"👁️ Œil {eye}")
+            for i, (eye, res) in enumerate(results.items()):
+                with tab_list[i]:
+                    col1, col2 = st.columns([1, 2])
+                    
+                    with col1:
+                        st.metric(label="Diagnostic", value=res['label'])
+                        st.write("**Détails des probabilités :**")
+                        # Transformation pour l'affichage
+                        proba_df = pd.DataFrame.from_dict(
+                            res["probabilities"], 
+                            orient="index", 
+                            columns=["Score"]
+                        )
+                        st.dataframe(proba_df.style.highlight_max(axis=0, color='lightgreen'))
 
-            st.markdown(f"### 🧪 **{res['label']}**")
+                    with col2:
+                        st.bar_chart(proba_df)
 
-            proba_df = pd.DataFrame.from_dict(
-                res["probabilities"],
-                orient="index",
-                columns=["Probabilité"]
-            )
+                    st.info("💡 Interprétation : Ce résultat doit être corrélé à l'examen clinique.")
 
-            st.bar_chart(proba_df)
-
-            st.markdown("---")
-            st.caption(
-                "Interprétation clinique recommandée en contexte "
-                "d’examen ophtalmologique complet."
-            )
+    except Exception as e:
+        st.error(f"Erreur technique : {e}")
 
 st.markdown("---")
-st.caption(
-    "Modèle LightGBM multiclasses – priorité à la détection du kératocône fruste."
-)
+st.caption("Modèle LightGBM – Aide au diagnostic du kératocône.")
