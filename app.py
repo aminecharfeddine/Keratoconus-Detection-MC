@@ -1,104 +1,98 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from predict import predict_from_file
 
-# Configuration de la page
 st.set_page_config(
-    page_title="KeraCheck AI",
+    page_title="Keratoconus AI",
     page_icon="👁️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# Custom CSS pour le style
-st.markdown("""
-    <style>
-    .main { background-color: #f8f9fa; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .status-box { padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- CONFIGURATION DES COULEURS ---
+COLOR_MAP = {
+    "Normal": "#2ecc71",       # Vert
+    "Fruste": "#f1c40f",       # Jaune/Or
+    "Kératocône": "#e74c3c"    # Rouge
+}
 
-# --- SIDEBAR ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/822/822102.png", width=80)
-    st.title("Navigation")
-    st.info("💡 **Aide** : Importez le fichier d'export brut (.csv/.txt) de la topographie cornéenne.")
-    
-    st.divider()
-    st.subheader("Paramètres du modèle")
-    st.write("Modèle : `LightGBM v2.1`")
-    st.write("Seuil de confiance : `85%` :white_check_mark:")
+st.title("👁️ Détection du kératocône par IA")
 
-# --- HEADER ---
-st.title("👁️ Keratoconus AI Decision Support")
-st.caption("Analyse automatisée de la morphologie cornéenne par Intelligence Artificielle.")
+uploaded_file = st.file_uploader("📂 Importer le fichier patient (.txt ou .csv)", type=["txt", "csv"])
 
-# --- FILE UPLOADER ---
-uploaded_file = st.file_uploader("", type=["txt", "csv"])
-
-if uploaded_file:
+if uploaded_file is not None:
     try:
-        with st.spinner("Analyse biométrique en cours..."):
+        with st.spinner("Analyse des données cornéennes..."):
             results = predict_from_file(uploaded_file)
-        
-        st.success("Analyse terminée avec succès.")
-        
-        # --- RESULTS DISPLAY ---
-        # On crée deux colonnes pour OD et OS si disponibles
-        tabs = st.tabs([f"👁️ Œil {eye}" for eye in results.keys()])
 
-        for i, (eye, res) in enumerate(results.items()):
-            with tabs[i]:
-                # Détermination de la couleur selon le label
-                label = res['label']
-                color = "#28a745" if "Normal" in label else "#fd7e14" if "Fruste" in label else "#dc3545"
-                bg_light = "#e8f5e9" if "Normal" in label else "#fff3e0" if "Fruste" in label else "#ffebee"
+        if not results:
+            st.warning("Aucune donnée détectée.")
+        else:
+            st.success(f"Analyse terminée ({len(results)} œil/yeux)")
 
-                # Header de résultat
-                st.markdown(f"""
-                    <div style="background-color:{bg_light}; padding:20px; border-radius:10px; border-left: 8px solid {color};">
-                        <h2 style="color:{color}; margin:0;">{label}</h2>
-                        <p style="color:#444; margin:0;">Confiance du modèle : <b>{max(res['probabilities'].values()):.1%}</b></p>
-                    </div>
-                """, unsafe_allow_html=True)
+            # Création des onglets
+            tabs = st.tabs([f"👁️ Œil {eye}" for eye in results.keys()])
 
-                st.write(" ") # Spacer
+            for i, (eye, res) in enumerate(results.items()):
+                with tabs[i]:
+                    # Récupération de la couleur selon le label
+                    # On simplifie le label pour matcher COLOR_MAP (ex: "Kératocône avéré" -> "Kératocône")
+                    main_label = res['label']
+                    bg_color = "#f0f2f6"
+                    if "Normal" in main_label: bg_color = COLOR_MAP["Normal"]
+                    elif "Fruste" in main_label: bg_color = COLOR_MAP["Fruste"]
+                    else: bg_color = COLOR_MAP["Kératocône"]
 
-                col_data, col_chart = st.columns([1, 1.5])
+                    # --- EN-TÊTE COLORÉ ---
+                    st.markdown(
+                        f"""
+                        <div style="background-color:{bg_color}; padding:20px; border-radius:10px; text-align:center;">
+                            <h2 style="color:white; margin:0;">{main_label.upper()}</h2>
+                        </div>
+                        """, 
+                        unsafe_style_context=True, # Note: Utilisez unsafe_allow_html=True
+                        unsafe_allow_html=True
+                    )
 
-                with col_data:
-                    st.subheader("Probabilités par classe")
-                    # Création d'un DF propre pour l'affichage
-                    df_res = pd.DataFrame({
-                        "Diagnostic": list(res["probabilities"].keys()),
-                        "Score (%)": [v * 100 for v in res["probabilities"].values()]
-                    })
-                    st.table(df_res.style.format({"Score (%)": "{:.1f}%"}))
-                    
-                    if "Kératocône" in label:
-                        st.warning("⚠️ **Avis médical :** Signes de forte suspicion. Une tomographie d'élévation est recommandée.")
+                    st.write("##") # Espacement
 
-                with col_chart:
-                    # Graphique à barres horizontal
-                    st.subheader("Distribution du risque")
-                    st.bar_chart(data=df_res.set_index("Diagnostic"), horizontal=True, height=200)
+                    col1, col2 = st.columns([1, 1])
 
-                st.divider()
-                with st.expander("Voir les données brutes extraites"):
-                    st.write("Ces données sont celles utilisées par le modèle après prétraitement.")
-                    # Si vous voulez afficher le DataFrame d'origine
-                    st.json(res["probabilities"])
+                    with col1:
+                        st.subheader("📊 Probabilités")
+                        df_proba = pd.DataFrame({
+                            'Classe': list(res["probabilities"].keys()),
+                            'Confiance': list(res["probabilities"].values())
+                        })
+                        
+                        # Graphique Plotly personnalisé
+                        fig = px.bar(
+                            df_proba, 
+                            x='Confiance', 
+                            y='Classe', 
+                            orientation='h',
+                            color='Classe',
+                            color_discrete_map={
+                                "Normal": COLOR_MAP["Normal"],
+                                "Fruste": COLOR_MAP["Fruste"],
+                                "Kératocône": COLOR_MAP["Kératocône"]
+                            },
+                            range_x=[0, 1]
+                        )
+                        fig.update_layout(showlegend=False, height=300, margin=dict(l=20, r=20, t=20, b=20))
+                        st.plotly_chart(fig, use_container_width=True)
+
+                    with col2:
+                        st.subheader("📝 Note clinique")
+                        if "Normal" in main_label:
+                            st.write("L'analyse topographique ne présente pas de signe suspect de kératocône.")
+                        elif "Fruste" in main_label:
+                            st.warning("Prudence : Des irrégularités subtiles ont été détectées. Un suivi est recommandé avant toute chirurgie réfractive.")
+                        else:
+                            st.error("Signes clairs de kératocône détectés. Une prise en charge spécialisée est suggérée.")
 
     except Exception as e:
-        st.error(f"Erreur lors de l'analyse : {str(e)}")
-        st.info("Vérifiez que le format du fichier correspond bien à l'export standard de la machine.")
+        st.error(f"Erreur technique : {e}")
 
-else:
-    # État vide (Landing page)
-    st.info("Veuillez importer un fichier pour lancer l'analyse.")
-
-
-# --- FOOTER ---
 st.markdown("---")
-st.caption("© 2026 Keratoconus Dectection AI Project - Clinique Ophtalmologique de Tunis.")
+st.caption("Aide au diagnostic basée sur LightGBM | © 2026 Clinique Ophtalmologique de Tunis")
