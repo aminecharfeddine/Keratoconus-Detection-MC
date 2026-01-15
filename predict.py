@@ -10,7 +10,7 @@ model = joblib.load(MODEL_PATH)
 
 LABEL_MAP = {
     0: "Normal",
-    1: "Fruste (suspect kératocône)",
+    1: "Fruste",
     2: "Kératocône avéré"
 }
 
