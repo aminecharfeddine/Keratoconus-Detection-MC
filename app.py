@@ -35,10 +35,14 @@ if uploaded_file is not None:
                         st.metric(label="Diagnostic", value=res['label'])
                         st.write("**Détails des probabilités :**")
                         # Transformation pour l'affichage
-                        proba_df = pd.DataFrame.from_dict(
+                        ORDER = ["Normal", "Fruste", "Kératocône"]
+                        proba_df = (
+                        pd.DataFrame.from_dict(
                             res["probabilities"], 
                             orient="index", 
                             columns=["Score"]
+                            )
+                        .reindex(ORDER)
                         )
                         st.dataframe(proba_df.style.highlight_max(axis=0, color='lightgreen'))
 
