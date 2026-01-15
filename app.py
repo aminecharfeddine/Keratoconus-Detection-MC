@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
-from predict import predict_from_file 
+from predict import predict_from_file
+import altair as alt
+
 
 st.set_page_config(
     page_title="Keratoconus AI",
@@ -36,18 +38,40 @@ if uploaded_file is not None:
                         st.write("**Détails des probabilités :**")
                         # Transformation pour l'affichage
                         ORDER = ["Normal", "Fruste", "Kératocône"]
-                        proba_df = (
-                        pd.DataFrame.from_dict(
+                        proba_df = pd.DataFrame.from_dict(
                             res["probabilities"], 
                             orient="index", 
                             columns=["Score"]
-                            )
-                        .reindex(ORDER)
                         )
                         st.dataframe(proba_df.style.highlight_max(axis=0, color='lightgreen'))
 
                     with col2:
-                        st.bar_chart(proba_df)
+                        ORDER = ["Normal", "Fruste", "Kératocône"]
+                        
+                        chart_df = (
+                            proba_df
+                            .reset_index()
+                            .rename(columns={"index": "Classe"})
+                        )
+                        
+                        chart = (
+                            alt.Chart(chart_df)
+                            .mark_bar()
+                            .encode(
+                                x=alt.X(
+                                    "Classe:N",
+                                    sort=ORDER,
+                                    title="Classe diagnostique"
+                                ),
+                                y=alt.Y(
+                                    "Score:Q",
+                                    title="Probabilité"
+                                ),
+                                tooltip=["Classe", alt.Tooltip("Score", format=".2%")]
+                            )
+                        )
+                        
+                        st.altair_chart(chart, use_container_width=True)
 
                     st.info("💡 Interprétation : Ce résultat doit être corrélé à l'examen clinique.")
 
