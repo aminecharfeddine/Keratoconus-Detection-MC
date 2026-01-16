@@ -55,21 +55,25 @@ if uploaded_file is not None:
                         )
                         
                         chart = (
-                            alt.Chart(chart_df)
-                            .mark_bar()
-                            .encode(
-                                x=alt.X(
-                                    "Classe:N",
-                                    sort=ORDER,
-                                    title="Classe diagnostique"
-                                ),
-                                y=alt.Y(
-                                    "Score:Q",
-                                    title="Probabilité"
-                                ),
-                                tooltip=["Classe", alt.Tooltip("Score", format=".2%")]
+                                alt.Chart(chart_df)
+                                .mark_bar()
+                                .encode(
+                                    x=alt.X("Classe:N", sort=ORDER, title="Classe diagnostique"),
+                                    y=alt.Y("Score:Q", title="Probabilité"),
+                                    color=alt.Color(
+                                        "Classe:N",
+                                        scale=alt.Scale(
+                                            domain=["Normal", "Fruste", "Kératocône"],
+                                            range=["#2ecc71", "#f39c12", "#e74c3c"]
+                                        ),
+                                        legend=None
+                                    ),
+                                    tooltip=[
+                                        alt.Tooltip("Classe", title="Classe"),
+                                        alt.Tooltip("Score", title="Probabilité", format=".2%")
+                                    ]
+                                )
                             )
-                        )
                         
                         st.altair_chart(chart, use_container_width=True)
 
