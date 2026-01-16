@@ -43,6 +43,14 @@ if uploaded_file is not None:
                             orient="index", 
                             columns=["Score"]
                         )
+                        max_class = proba_df["Score"].idxmax()
+                        max_score = proba_df["Score"].max()
+                        
+                        st.metric(
+                            label=f"Classe la plus probable : {max_class}",
+                            value=f"{max_score:.1%}"
+                        )
+
                         st.dataframe(proba_df.style.highlight_max(axis=0, color='lightgreen'))
 
                     with col2:
