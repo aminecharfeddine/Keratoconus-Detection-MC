@@ -50,9 +50,27 @@ if uploaded_file is not None:
                             label=f"Classe la plus probable : {max_class}",
                             value=f"{max_score:.1%}"
                         )
-
-                        st.dataframe(proba_df.style.highlight_max(axis=0, color='lightgreen'))
-
+                        
+                        COLOR_MAP = {
+                            "Normal": "#2ecc71",       # vert
+                            "Fruste": "#f39c12",       # orange
+                            "Kératocône": "#e74c3c"    # rouge
+                        }
+                        
+                        def highlight_selected(row):
+                            if row.name == max_class:
+                                return [f"background-color: {COLOR_MAP[row.name]}"] * len(row)
+                            return [""] * len(row)
+                        
+                        styled_df = (
+                            proba_df
+                            .style
+                            .apply(highlight_selected, axis=1)
+                            .format({"Score": "{:.0%}"})
+                        )
+                        
+                        st.dataframe(styled_df)
+                        
                     with col2:
                         ORDER = ["Normal", "Fruste", "Kératocône"]
                         
