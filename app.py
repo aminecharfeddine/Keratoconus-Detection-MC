@@ -66,7 +66,7 @@ if uploaded_file is not None:
                             proba_df
                             .style
                             .apply(highlight_selected, axis=1)
-                            .format({"Score": "{:.2%}"})
+                            .format({"Score": "{:.1%}"})
                         )
                         
                         st.dataframe(styled_df)
